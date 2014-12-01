@@ -2,3 +2,7 @@
 *.pyc
 __pycache__
 pwd_zenobase.txt
+
+dist
+build
+*.egg-info
