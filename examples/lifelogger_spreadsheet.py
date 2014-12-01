@@ -133,7 +133,7 @@ class Lifelogger_to_Zenobase():
                 try:
                     weight = float(raw_table[j+2][i])
                 except ValueError:
-                    print("Invalid data '{}' (not a number) in cell: {}, skipping".format(raw_table[j+2][i]), (j+2, i))
+                    print("Invalid data '{}' (not a number) in cell: {}. Skipping...".format(raw_table[j+2][i], (j+2, i)))
                     continue
                 event = pyzenobase.ZenobaseEvent(
                         {"timestamp": date+"T00:00:00.000+02:00",
