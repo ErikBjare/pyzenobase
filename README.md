@@ -12,4 +12,5 @@ Install by using `pip3 install .` or `python3 ./setup.py install` (use `sudo` if
 Check out the examples in `./examples`.
 
 ## Documentation
-Not yet available, but codebase is small so reading `src/main.py` should be simple enough to understand usage.
+Not yet available, but codebase is small so reading `./pyzenobase/main.py` should be enough to understand how to use it.
+For info about the general Zenobase API, look [here](https://zenobase.com/#/api/).
