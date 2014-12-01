@@ -33,7 +33,7 @@ class ZenobaseAPI():
         else:
             raise Exception("UNSUPPORTED METHOD")
 
-        if 300 < r.status_code:
+        if not (200 <= r.status_code < 300):
             raise Exception("Status code was not 2xx: {}".format(r))
 
         if "content-type" in r.headers:
@@ -41,25 +41,25 @@ class ZenobaseAPI():
                 return r.json()
         return r.text
 
-    def get(self, *args, **kwargs):
+    def _get(self, *args, **kwargs):
         return self._request("GET", *args, **kwargs)
     
-    def post(self, *args, **kwargs):
+    def _post(self, *args, **kwargs):
         return self._request("POST", *args, **kwargs)
 
-    def delete(self, *args, **kwargs):
+    def _delete(self, *args, **kwargs):
         return self._request("DELETE", *args, **kwargs)
 
     def list_buckets(self):
-        return self.get("/users/{}/buckets/".format(self.client_id))
+        return self._get("/users/{}/buckets/".format(self.client_id))
 
     def get_bucket(self, bucket_id):
-        return self.get("/buckets/{}".format(bucket_id))
+        return self._get("/buckets/{}".format(bucket_id))
 
     def create_bucket(self, label, description=""):
         if not 1 <= len(label) <= 20:
             raise Exception("Bucket name must be 1-20 chars and can only contain [a-zA-Z0-9-_ ]")
-        return self.post("/buckets/", data={"label": label, "description": description})
+        return self._post("/buckets/", data={"label": label, "description": description})
 
     def create_or_get_bucket(self, label, description=""):
         data = self.list_buckets()
@@ -69,14 +69,14 @@ class ZenobaseAPI():
         return self.create_bucket(label, description=description)
 
     def delete_bucket(self, bucket_id):
-        self.delete("/buckets/{}".format(bucket_id))
+        self._delete("/buckets/{}".format(bucket_id))
 
     def list_events(self, bucket_id):
-        return self.get("/buckets/{}/".format(bucket_id))
+        return self._get("/buckets/{}/".format(bucket_id))
 
     def create_event(self, bucket_id, event):
         assert isinstance(event, ZenobaseEvent) or isinstance(event, dict)
-        return self.post("/buckets/{}/".format(bucket_id), data=event)
+        return self._post("/buckets/{}/".format(bucket_id), data=event)
 
 
 _VALID_FIELDS = ["bits", "concentration", "count", "distance", 

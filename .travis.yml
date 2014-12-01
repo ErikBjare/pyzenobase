@@ -1,0 +1,19 @@
+language: python
+sudo: false
+
+python:
+    - 3.2
+    - 3.3
+    - 3.4
+
+before_install:
+    - pip install .
+
+install:
+    - true
+
+before_script:
+    - true
+
+script:
+    - python -m unittest discover -s ./pyzenobase/tests -p '*.py'

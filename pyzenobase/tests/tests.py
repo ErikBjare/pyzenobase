@@ -6,9 +6,9 @@ from pprint import pprint
 import unittest
 from random import randint
 
-from main import *
-
 import requests
+
+from pyzenobase import *
 
 class ZenobaseTests(unittest.TestCase):
     def setUp(self):
