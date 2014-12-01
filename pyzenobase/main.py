@@ -78,6 +78,12 @@ class ZenobaseAPI():
         assert isinstance(event, ZenobaseEvent) or isinstance(event, dict)
         return self._post("/buckets/{}/".format(bucket_id), data=event)
 
+    def create_events(self, bucket_id, events):
+        assert isinstance(events, list)
+        for event in events:
+            assert isinstance(event, ZenobaseEvent) or isinstance(event, dict)
+        return self._post("/buckets/"+bucket_id+"/", data={"events": events})
+
 
 _VALID_FIELDS = ["bits", "concentration", "count", "distance", 
                  "duration", "energy", "frequency", "height", 
