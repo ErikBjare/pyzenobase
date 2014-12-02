@@ -38,6 +38,7 @@ def upload_batterystats(filename, username, password, bucket_name=BUCKET_NAME, b
     events = [pyzenobase.ZenobaseEvent(event) for event in events]
     print("Uploading...")
     zapi.create_events(bucket_id, events)
+    zapi.close()
     print("Done!")
 
 if __name__ == "__main__":

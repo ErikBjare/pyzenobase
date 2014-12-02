@@ -83,6 +83,9 @@ class ZenobaseAPI():
             assert isinstance(event, ZenobaseEvent) or isinstance(event, dict)
         return self._post("/buckets/"+bucket_id+"/", data={"events": events})
 
+    def close(self):
+        return self._delete("/authorizations/"+self.access_token)
+
 
 _VALID_FIELDS = ["bits", "concentration", "count", "distance", 
                  "duration", "energy", "frequency", "height", 

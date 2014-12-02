@@ -18,7 +18,7 @@ class ZenobaseTests(unittest.TestCase):
         time.sleep(1)
         self.assertEqual(self.zapi.list_buckets()["total"], 1)
         self.bucket_id = bucket["@id"]
-    
+
     def test_event(self):
         events = self.zapi.list_events(self.bucket_id)["events"]
         self.assertEqual(len(events), 0)
@@ -32,6 +32,7 @@ class ZenobaseTests(unittest.TestCase):
 
     def tearDown(self):
         self.zapi.delete_bucket(self.bucket_id)
+        self.zapi.close()
 
 if __name__ == "__main__":
     unittest.main()

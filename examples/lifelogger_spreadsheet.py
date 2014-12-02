@@ -188,6 +188,9 @@ class Lifelogger_to_Zenobase():
                 events.append(event)
         self._create_events(bucket_id, events)
 
+    def close(self):
+        self.zapi.close()
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Upload data from Lifelogger spreadsheet to Zenobase")
     parser.add_argument("google_email")
@@ -209,3 +212,5 @@ if __name__ == "__main__":
         l2z.create_daily_supps()
     if create_timestamped_supps:
         l2z.create_timestamped_supps()
+
+    l2z.close()
