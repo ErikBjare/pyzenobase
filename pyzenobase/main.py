@@ -29,15 +29,7 @@ class ZenobaseAPI():
         headers["Content-Type"] = "application/json"
         args = [url]
         kwargs = {"data": json.dumps(data), "headers": headers}
-        if method == "GET":
-            r = requests.get(*args, **kwargs)
-        elif method == "POST":
-            r = requests.post(*args, **kwargs)
-        elif method == "DELETE":
-            r = requests.delete(*args, **kwargs)
-        else:
-            raise Exception("UNSUPPORTED METHOD")
-
+        r = method(*args, **kwargs)
         if not (200 <= r.status_code < 300):
             raise Exception("Status code was not 2xx: {}".format(r))
 
@@ -47,13 +39,13 @@ class ZenobaseAPI():
         return r.text
 
     def _get(self, *args, **kwargs):
-        return self._request("GET", *args, **kwargs)
+        return self._request(requests.get, *args, **kwargs)
     
     def _post(self, *args, **kwargs):
-        return self._request("POST", *args, **kwargs)
+        return self._request(requests.post, *args, **kwargs)
 
     def _delete(self, *args, **kwargs):
-        return self._request("DELETE", *args, **kwargs)
+        return self._request(requests.delete, *args, **kwargs)
 
     def list_buckets(self):
         return self._get("/users/{}/buckets/".format(self.client_id))
