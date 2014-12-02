@@ -87,9 +87,9 @@ class ZenobaseAPI():
         return self._delete("/authorizations/"+self.access_token)
 
 
-_VALID_FIELDS = ["bits", "concentration", "count", "distance", 
-                 "duration", "energy", "frequency", "height", 
-                 "humidity", "location", "note", "moon", "percentage", 
+_VALID_FIELDS = ["bits", "concentration", "count", "currency", "distance", 
+                 "distance/volume", "duration", "energy", "frequency", "height", 
+                 "humidity", "location", "moon", "note", "pace", "percentage", 
                  "pressure", "rating", "resource", "sound", "source", "tag", 
                  "temperature", "timestamp", "velocity", "volume", "weight"]
 
