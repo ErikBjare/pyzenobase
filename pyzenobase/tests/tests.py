@@ -12,10 +12,7 @@ from pyzenobase import *
 
 class ZenobaseTests(unittest.TestCase):
     def setUp(self):
-        with open("pwd_zenobase.txt") as f:
-            username, password = f.read().split("\n")[:2]
-        self.zapi = ZenobaseAPI(username, password)
-
+        self.zapi = ZenobaseAPI()
         bucket = self.zapi.create_or_get_bucket("Test - PyZenobaseAPI", description="This bucket is used by PyZenobaseAPI for testing.")
         self.bucket_id = bucket["@id"]
 

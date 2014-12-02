@@ -10,14 +10,19 @@ from datetime import datetime
 import requests
 
 class ZenobaseAPI():
-    def __init__(self, username, password):
-        r = requests.post("https://api.zenobase.com/oauth/token", data={"grant_type": "password", "username": username, "password": password})
+    def __init__(self, username=None, password=None):
+        payload = {}
+        if username is not None:
+            payload = {"grant_type": "password", "username": username, "password": password}
+        else:
+            payload = {"grant_type": "client_credentials"}            
+        r = requests.post("https://api.zenobase.com/oauth/token", data=payload)
         data = r.json()
         if "error" in data:
             raise Exception("Invalid Zenobase credentials")
         self.access_token = data["access_token"]
         self.client_id = data["client_id"]
-  
+
     def _request(self, method, endpoint, data=None, headers={}):
         url = "https://api.zenobase.com" + endpoint
         headers["Authorization"] = "Bearer {}".format(self.access_token)
