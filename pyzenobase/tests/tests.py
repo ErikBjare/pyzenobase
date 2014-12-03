@@ -6,8 +6,9 @@ from pprint import pprint
 import unittest
 from random import randint
 import requests
-import time
+from datetime import timezone
 
+import pyzenobase
 from pyzenobase import *
 
 class ZenobaseTests(unittest.TestCase):
@@ -22,7 +23,10 @@ class ZenobaseTests(unittest.TestCase):
     def test_event(self):
         events = self.zapi.list_events(self.bucket_id)["events"]
         self.assertEqual(len(events), 0)
-        event = ZenobaseEvent({"timestamp": "2014-09-06T19:35:00.000+02:00", "rating": randint(0, 100)})
+        event = ZenobaseEvent({
+            "timestamp": pyzenobase.fmt_datetime(datetime.now(timezone.utc), timezone="Europe/Stockholm"),
+            "rating": randint(0, 100)
+        })
         self.zapi.create_event(self.bucket_id, event)
         time.sleep(1)
         events = self.zapi.list_events(self.bucket_id)["events"]

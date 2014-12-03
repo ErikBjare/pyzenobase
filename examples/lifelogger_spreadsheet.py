@@ -112,7 +112,8 @@ class Lifelogger_to_Zenobase():
                 except KeyError:
                     print("Warning, could not detect state of '{}'".format(val))
                     continue
-                events.append(pyzenobase.ZenobaseEvent({"timestamp": d+"T00:00:00.000+02:00", "count": state, "tag": label}))
+                t = pyzenobase.fmt_datetime(datetime.strptime(d, '%Y-%m-%d'), timezone="Europe/Stockholm")
+                events.append(pyzenobase.ZenobaseEvent({"timestamp": t, "count": state, "tag": label}))
 
         self._create_events(bucket_id, events)
 

@@ -28,7 +28,7 @@ def upload_batterystats(filename, username, password, bucket_name=BUCKET_NAME, b
     print("Read {} events".format(len(events)))
     for event in events:
         # Transform data
-        event["timestamp"] = pyzenobase.dt_to_timestamp(datetime.strptime(event.pop("datetime"), "%Y-%m-%d %H:%M:%S"), timezone="+01:00")
+        event["timestamp"] = pyzenobase.fmt_datetime(datetime.strptime(event.pop("datetime"), "%Y-%m-%d %H:%M:%S"), timezone="Europe/Stockholm")
         event["tag"] = event.pop("status")
         event["percentage"] = float(event.pop("level"))
         event["temperature"] = {"@value": float(event.pop("temperature")), "unit": "C"}

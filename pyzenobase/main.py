@@ -6,6 +6,7 @@ from pprint import pprint
 import unittest
 from random import randint
 from datetime import datetime
+import pytz
 
 import requests
 
@@ -103,5 +104,7 @@ class ZenobaseEvent(dict):
             assert field in _VALID_FIELDS
             self[field] = data[field]
 
-def dt_to_timestamp(dt, timezone="+00:00"):
-    return datetime.strftime(dt, "%Y-%m-%dT%H:%M:%S") + ".000" + timezone
+def fmt_datetime(dt, timezone="UTC"):
+    tz = pytz.timezone(timezone)
+    dt = dt.astimezone(tz) if dt.tzinfo else tz.localize(dt)
+    return dt.strftime('%Y-%m-%dT%H:%M:%S.000%z')
