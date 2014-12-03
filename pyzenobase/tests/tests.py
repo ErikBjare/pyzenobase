@@ -5,40 +5,38 @@ import json
 from pprint import pprint
 import unittest
 from random import randint
-
 import requests
+from datetime import timezone
 
+import pyzenobase
 from pyzenobase import *
 
 class ZenobaseTests(unittest.TestCase):
     def setUp(self):
-        with open("pwd_zenobase.txt") as f:
-            username, password = f.read().split("\n")[:2]
-        self.zapi = ZenobaseAPI(username, password)
-
+        self.zapi = ZenobaseAPI()
+        self.assertEqual(self.zapi.list_buckets()["total"], 0)
         bucket = self.zapi.create_or_get_bucket("Test - PyZenobaseAPI", description="This bucket is used by PyZenobaseAPI for testing.")
+        time.sleep(1)
+        self.assertEqual(self.zapi.list_buckets()["total"], 1)
         self.bucket_id = bucket["@id"]
 
-    def tearDown(self):
-        pass
-
-    def _test_bucket(self):
-        buckets = self.zapi.list_buckets()
-        n_buckets = buckets["total"]
-        data = self.zapi.create_bucket("Test bucket", description="This bucket is for testing.")
-        self.assertTrue(n_buckets+1 == self.zapi.list_buckets()["total"])
-        self.zapi.delete_bucket(data["@id"])
-        self.assertTrue(n_buckets == self.zapi.list_buckets()["total"])
-    
-    def test_bucket(self):
-        data = self.zapi.create_bucket("Test bucket", description="This bucket is for testing.")
-        self.zapi.delete_bucket(data["@id"])
-
     def test_event(self):
-        event = ZenobaseEvent({"timestamp": "2014-09-06T19:35:00.000+02:00", "rating": randint(0, 100)})
+        events = self.zapi.list_events(self.bucket_id)["events"]
+        self.assertEqual(len(events), 0)
+        event = ZenobaseEvent({
+            "timestamp": pyzenobase.fmt_datetime(datetime.now(timezone.utc), timezone="Europe/Stockholm"),
+            "rating": randint(0, 100)
+        })
         self.zapi.create_event(self.bucket_id, event)
-        pprint(self.zapi.list_events(self.bucket_id))
-        
+        time.sleep(1)
+        events = self.zapi.list_events(self.bucket_id)["events"]
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0]["timestamp"], event["timestamp"])
+        self.assertEqual(events[0]["rating"], event["rating"])
+
+    def tearDown(self):
+        self.zapi.delete_bucket(self.bucket_id)
+        self.zapi.close()
 
 if __name__ == "__main__":
     unittest.main()

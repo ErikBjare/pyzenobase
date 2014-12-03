@@ -6,33 +6,33 @@ from pprint import pprint
 import unittest
 from random import randint
 from datetime import datetime
+import pytz
 
 import requests
 
 class ZenobaseAPI():
-    def __init__(self, username, password):
-        r = requests.post("https://api.zenobase.com/oauth/token", data={"grant_type": "password", "username": username, "password": password})
+    HOST = "https://api.zenobase.com"
+
+    def __init__(self, username=None, password=None):
+        payload = {}
+        if username is not None:
+            payload = {"grant_type": "password", "username": username, "password": password}
+        else:
+            payload = {"grant_type": "client_credentials"}            
+        r = requests.post(self.HOST + "/oauth/token", data=payload)
         data = r.json()
         if "error" in data:
             raise Exception("Invalid Zenobase credentials")
         self.access_token = data["access_token"]
         self.client_id = data["client_id"]
-  
+
     def _request(self, method, endpoint, data=None, headers={}):
-        url = "https://api.zenobase.com" + endpoint
+        url = self.HOST + endpoint
         headers["Authorization"] = "Bearer {}".format(self.access_token)
         headers["Content-Type"] = "application/json"
         args = [url]
         kwargs = {"data": json.dumps(data), "headers": headers}
-        if method == "GET":
-            r = requests.get(*args, **kwargs)
-        elif method == "POST":
-            r = requests.post(*args, **kwargs)
-        elif method == "DELETE":
-            r = requests.delete(*args, **kwargs)
-        else:
-            raise Exception("UNSUPPORTED METHOD")
-
+        r = method(*args, **kwargs)
         if not (200 <= r.status_code < 300):
             raise Exception("Status code was not 2xx: {}".format(r))
 
@@ -42,13 +42,13 @@ class ZenobaseAPI():
         return r.text
 
     def _get(self, *args, **kwargs):
-        return self._request("GET", *args, **kwargs)
+        return self._request(requests.get, *args, **kwargs)
     
     def _post(self, *args, **kwargs):
-        return self._request("POST", *args, **kwargs)
+        return self._request(requests.post, *args, **kwargs)
 
     def _delete(self, *args, **kwargs):
-        return self._request("DELETE", *args, **kwargs)
+        return self._request(requests.delete, *args, **kwargs)
 
     def list_buckets(self):
         return self._get("/users/{}/buckets/".format(self.client_id))
@@ -84,10 +84,13 @@ class ZenobaseAPI():
             assert isinstance(event, ZenobaseEvent) or isinstance(event, dict)
         return self._post("/buckets/"+bucket_id+"/", data={"events": events})
 
+    def close(self):
+        return self._delete("/authorizations/"+self.access_token)
 
-_VALID_FIELDS = ["bits", "concentration", "count", "distance", 
-                 "duration", "energy", "frequency", "height", 
-                 "humidity", "location", "note", "moon", "percentage", 
+
+_VALID_FIELDS = ["bits", "concentration", "count", "currency", "distance", 
+                 "distance/volume", "duration", "energy", "frequency", "height", 
+                 "humidity", "location", "moon", "note", "pace", "percentage", 
                  "pressure", "rating", "resource", "sound", "source", "tag", 
                  "temperature", "timestamp", "velocity", "volume", "weight"]
 
@@ -101,5 +104,7 @@ class ZenobaseEvent(dict):
             assert field in _VALID_FIELDS
             self[field] = data[field]
 
-def dt_to_timestamp(dt, timezone="+00:00"):
-    return datetime.strftime(dt, "%Y-%m-%dT%H:%M:%S") + ".000" + timezone
+def fmt_datetime(dt, timezone="UTC"):
+    tz = pytz.timezone(timezone)
+    dt = dt.astimezone(tz) if dt.tzinfo else tz.localize(dt)
+    return dt.strftime('%Y-%m-%dT%H:%M:%S.000%z')
