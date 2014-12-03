@@ -1,5 +1,12 @@
 #!/usr/bin/python3
 
+"""
+    This is an example which grabs a spreadsheet (that follows a certain format) 
+    from Google Docs and uploads the data into Zenobase.
+
+    Example spreadsheet will be available at a later date.
+"""
+
 import time
 from datetime import date, datetime, timedelta
 import re
@@ -117,7 +124,7 @@ class Lifelogger_to_Zenobase():
         self._create_events(bucket_id, events)
 
     def create_daily_supps(self):
-        raw_table = self.get_raw_table("D")
+        raw_table = self.get_raw_table("D - Daily")
         labels = raw_table[0]
         dates = self.get_dates(raw_table)
         bucket = self.zapi.create_or_get_bucket("Lifelogger - Supps")
@@ -147,40 +154,42 @@ class Lifelogger_to_Zenobase():
 
     def create_timestamped_supps(self):
         # TODO: Support volume for drinks etc.
-
-        raw_table = self.get_raw_table("RD")
-        labels = raw_table[2]
+        raw_table = self.get_raw_table("D - Timestamped")
         dates = self.get_dates(raw_table)
         bucket = self.zapi.create_or_get_bucket("Lifelogger - TSupp")
         bucket_id = bucket["@id"]
 
-        r_weight = re.compile("^[0-9\.]+")
+        r_weight = re.compile("^[0-9]+\.?[0-9]*")
         r_unit = re.compile("mcg|ug|mg|g")
 
         events = []
-        for i in range(8, len(labels), 2):
+        for i in range(1, len(raw_table[0]), 2):
             for j, date in enumerate(dates):
-                time_cell = raw_table[j+2][i]
-                text_cell = raw_table[j+2][i+1]
-                if not time_cell:
+                time = raw_table[j+2][i]
+                text = raw_table[j+2][i+1]
+                if not time:
                     continue
-                time = time_cell
                 
                 try:
-                    weight = float(r_weight.findall(text_cell)[0])
-                    unit = r_unit.findall(text_cell)[0]
-                except (ValueError, IndexError):
-                    print("Could not parse weight or unit: '{}', skipping".format(text_cell))
+                    weight = float(r_weight.findall(text)[0])
+                except ValueError:
+                    print("Could not parse weight from '{}', skipping".format(text))
                     continue
 
-                # Unsupported units
-                if unit in ["mcg", "ug"]:
+                try:
+                    unit = r_unit.findall(text)[0]
+                except IndexError:
+                    print("Could not parse unit from '{}', skipping".format(text))
+                    continue
+
+                # Convert units not supported by Zenobase
+                if unit in ["mcg", "ug", "µg"]:
                     unit = "mg"
                     weight = weight/1000
 
                 event = pyzenobase.ZenobaseEvent(
                         {"timestamp": date+"T"+time+".000+02:00",
-                         "tag": text_cell.split(" ")[1],
+                         "tag": text.split(" ")[1],
                          "weight": {
                              "@value": weight,
                              "unit": unit
