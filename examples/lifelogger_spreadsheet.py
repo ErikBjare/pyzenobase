@@ -202,10 +202,9 @@ class Lifelogger_to_Zenobase():
                     logging.warning("Could not parse unit from '{}', skipping".format(text))
                     continue
 
-                # Convert units not supported by Zenobase
-                if unit in ["mcg", "ug", "µg"]:
-                    unit = "mg"
-                    weight = weight/1000
+                # Zenobase uses "ug" for micrograms
+                if unit in ["mcg", "µg"]:
+                    unit = "ug"
 
                 substance = text.split(" ")[1]
                 event = pyzenobase.ZenobaseEvent(
