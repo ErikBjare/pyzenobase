@@ -7,11 +7,14 @@
     Example spreadsheet will be available at a later date.
 """
 
+# TODO: Ability to only send updates (events with dates later than the latest in bucket)
+
 import time
-from datetime import date, datetime, timedelta
+import datetime
 import re
 import pprint
 import argparse
+import logging
 
 import requests
 import gspread
@@ -21,45 +24,58 @@ import pyzenobase
 class Lifelogger_to_Zenobase():
     def __init__(self, google_email, google_password, zenobase_username, zenobase_password):
         self.gc = gspread.login(google_email, google_password)
-        print("Authorization with Google successfull!")
+        logging.info("Authorization with Google successfull!")
 
         self.zapi = pyzenobase.ZenobaseAPI(zenobase_username, zenobase_password)
         self.ll = self.gc.open("Lifelogger")
+        self.supplements_bucket = self.zapi.create_or_get_bucket("Supplements")
 
     def _create_events(self, bucket_id, events):
-        print("Uploading {} events...".format(len(events)))
+        logging.info("Uploading {} events...".format(len(events)))
         self.zapi.create_events(bucket_id, events)
-        print("Done!".format(len(events)))
+        logging.debug("Done!".format(len(events)))
 
     def get_raw_table(self, sheetname):
         start = time.time()
         sheet = self.ll.worksheet(sheetname)
         raw_table = sheet.get_all_values()
-        print("Took {}s to fetch worksheet '{}'".format(round(time.time()-start, 3), sheetname))
+        logging.debug("Took {}s to fetch worksheet '{}'".format(round(time.time()-start, 3), sheetname))
         return raw_table
 
     @staticmethod
-    def get_dates(raw_table):
+    def get_dates(raw_table) -> "list of dates":
+        """
+            Goes through the first column of input table and 
+            returns the first sequence of dates it finds.
+        """
         dates = []
         found_first = False
-        for i, d in enumerate([raw_table[i][0] for i in range(0, len(raw_table))]):
-            if d and len(d.split("/")) == 3:
-                month, day, year = map(int, d.split("/"))
-                d = date(year, month, day)
-                dates.append(d.isoformat())
+        for i, dstr in enumerate([raw_table[i][0] for i in range(0, len(raw_table))]):
+            if dstr:
+                if len(dstr.split("/")) == 3:
+                    d = datetime.datetime.strptime(dstr, '%m/%d/%Y')
+                elif len(dstr.split("-")) == 3:
+                    d = datetime.datetime.strptime(dstr, '%Y-%m-%d')
+                else:
+                    # Not necessarily an error, could just be a non-date cell
+                    logging.debug("unknown date-format: {}".format(dstr))
+                    continue
+                dates.append(d)
                 if not found_first:
                     found_first = True
-                    print("Found first date: '{}' at i: {}".format(d.isoformat(), i))
+                    logging.debug("Found first date: '{}' at i: {}".format(d.isoformat(), i))
             elif found_first:
-                print("Last date: {}".format(date))
+                logging.debug("Last date: {}".format(d))
                 break
-
         return dates
 
 
-    def get_main(self):
-        raw_table = self.get_raw_table("M")
+    def get_main(self) -> 'table[category: str][label: str][date: date]':
+        """
+            Returns a table with the above typesignature
+        """
 
+        raw_table = self.get_raw_table("M")
         categories = raw_table[0]
         labels = raw_table[1]
         dates = self.get_dates(raw_table)
@@ -81,10 +97,10 @@ class Lifelogger_to_Zenobase():
             ci = categories.index(category)
             i = labels.index(label, ci)
             cells = {}
-            for j, date in enumerate(dates):
-                cell = raw_table[4+j][i]
+            for j, d in enumerate(dates):
+                cell = raw_table[j+2][i]
                 if cell and cell != "#VALUE!":
-                    cells[date] = cell
+                    cells[d] = cell
             return cells
 
         table = {}
@@ -92,11 +108,9 @@ class Lifelogger_to_Zenobase():
             if not cat:
                 continue
             table[cat] = {}
-            #print(cat)
             for i, label in get_category_labels(i):
                 table[cat][label] = get_label_cells(cat, label)
-                #print(" - {}".format(label))
-        #pprint.pprint(table, indent=2)
+
         return table
 
 
@@ -106,7 +120,7 @@ class Lifelogger_to_Zenobase():
 
     def create_streaks(self):
         table = self.get_main()
-        bucket = self.zapi.create_or_get_bucket("Lifelogger - Streaks")
+        bucket = self.zapi.create_or_get_bucket("Streaks")
         bucket_id = bucket["@id"]
 
         events = []
@@ -117,10 +131,13 @@ class Lifelogger_to_Zenobase():
                 try:
                     state = mapping[val]
                 except KeyError:
-                    print("Warning, could not detect state of '{}'".format(val))
+                    logging.warning("could not detect state of '{}'".format(val))
                     continue
-                t = pyzenobase.fmt_datetime(datetime.strptime(d, '%Y-%m-%d'), timezone="Europe/Stockholm")
-                events.append(pyzenobase.ZenobaseEvent({"timestamp": t, "count": state, "tag": label}))
+                ts = pyzenobase.fmt_datetime(d, timezone="Europe/Stockholm")
+                events.append(pyzenobase.ZenobaseEvent(
+                        {"timestamp": ts, 
+                         "count": state, 
+                         "tag": [label, val]}))
 
         self._create_events(bucket_id, events)
 
@@ -128,59 +145,61 @@ class Lifelogger_to_Zenobase():
         raw_table = self.get_raw_table("D - Daily")
         labels = raw_table[0]
         dates = self.get_dates(raw_table)
-        bucket = self.zapi.create_or_get_bucket("Lifelogger - Supps")
-        bucket_id = bucket["@id"]
+        bucket_id = self.supplements_bucket["@id"]
 
         events = []
         for i, label in enumerate(labels):
             if not label:
                 continue
-            for j, date in enumerate(dates):
+            for j, d in enumerate(dates):
                 if not raw_table[j+2][i]:
                     continue
+
                 try:
                     weight = float(raw_table[j+2][i])
                 except ValueError:
-                    print("Invalid data '{}' (not a number) in cell: {}. Skipping...".format(raw_table[j+2][i], (j+2, i)))
+                    logging.warning("Invalid data '{}' (not a number) in cell: {}. Skipping..."
+                            .format(raw_table[j+2][i], (j+2, i)))
                     continue
-                event = pyzenobase.ZenobaseEvent(
-                        {"timestamp": date+"T00:00:00.000+02:00",
-                         "tag": label,
+
+                events.append(pyzenobase.ZenobaseEvent(
+                        {"timestamp": pyzenobase.fmt_datetime(d, timezone="Europe/Stockholm"),
+                         "tag": [label, "daily"],
                          "weight": {
                              "@value": weight,
                              "unit": "mg"
-                         }})
-                events.append(event)
+                         }}))
         self._create_events(bucket_id, events)
 
     def create_timestamped_supps(self):
         # TODO: Support volume for drinks etc.
         raw_table = self.get_raw_table("D - Timestamped")
         dates = self.get_dates(raw_table)
-        bucket = self.zapi.create_or_get_bucket("Lifelogger - TSupp")
-        bucket_id = bucket["@id"]
+        bucket_id = self.supplements_bucket["@id"]
 
         r_weight = re.compile("^[0-9]+\.?[0-9]*")
         r_unit = re.compile("mcg|ug|mg|g")
 
         events = []
         for i in range(1, len(raw_table[0]), 2):
-            for j, date in enumerate(dates):
-                time = raw_table[j+2][i]
-                text = raw_table[j+2][i+1]
-                if not time:
+            for j, d in enumerate(dates):
+                try:
+                    t = datetime.datetime.strptime(raw_table[j+1][i], "%H:%M:%S").time()
+                except:
+                    # Did not contain time
                     continue
+                text = raw_table[j+1][i+1]
                 
                 try:
                     weight = float(r_weight.findall(text)[0])
                 except ValueError:
-                    print("Could not parse weight from '{}', skipping".format(text))
+                    logging.warning("Could not parse weight from '{}', skipping".format(text))
                     continue
 
                 try:
                     unit = r_unit.findall(text)[0]
                 except IndexError:
-                    print("Could not parse unit from '{}', skipping".format(text))
+                    logging.warning("Could not parse unit from '{}', skipping".format(text))
                     continue
 
                 # Convert units not supported by Zenobase
@@ -188,9 +207,10 @@ class Lifelogger_to_Zenobase():
                     unit = "mg"
                     weight = weight/1000
 
+                substance = text.split(" ")[1]
                 event = pyzenobase.ZenobaseEvent(
-                        {"timestamp": date+"T"+time+".000+02:00",
-                         "tag": text.split(" ")[1],
+                        {"timestamp": pyzenobase.fmt_datetime(datetime.datetime.combine(d, t), timezone="Europe/Stockholm"),
+                         "tag": [substance, "timestamped"],
                          "weight": {
                              "@value": weight,
                              "unit": unit
@@ -201,20 +221,23 @@ class Lifelogger_to_Zenobase():
     def close(self):
         self.zapi.close()
 
+
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
+    logging.getLogger("requests").setLevel(logging.WARNING)
+    
     parser = argparse.ArgumentParser(description="Upload data from Lifelogger spreadsheet to Zenobase")
     parser.add_argument("google_email")
     parser.add_argument("google_password")
     parser.add_argument("zenobase_username")
     parser.add_argument("zenobase_password")
-
     args = parser.parse_args()
-    
-    l2z = Lifelogger_to_Zenobase(args.google_email, args.google_password, args.zenobase_username, args.zenobase_password)
 
     create_streaks = input("Create streaks? (y/N): ") == "y"
     create_daily_supps = input("Create daily supplements? (y/N): ") == "y"
     create_timestamped_supps = input("Create timestamped supplements? (y/N): ") == "y"
+    
+    l2z = Lifelogger_to_Zenobase(args.google_email, args.google_password, args.zenobase_username, args.zenobase_password)
 
     if create_streaks:
         l2z.create_streaks()
