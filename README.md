@@ -6,7 +6,10 @@ PyZenobase
 A small and simple (but helpful) library to aid in uploading and fetching data to/from [Zenobase](https://zenobase.com/).
 
 ## Installation
-Install by using `pip3 install .` or `python3 ./setup.py install` (use `sudo` if necessary).
+Install by using any of the following commands, prefix with `sudo` if necessary.
+ - `pip3 install git+https://github.com/ErikBjare/pyzenobase.git`
+ - `pip3 install .` after cloning into working directory
+ - `python3 ./setup.py install` after cloning into working directory
 
 ## Examples
 Check out the examples in `./examples`.
