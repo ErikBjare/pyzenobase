@@ -6,7 +6,7 @@ from pprint import pprint
 import unittest
 from random import randint
 import requests
-from datetime import timezone
+from datetime import datetime, timezone
 
 import pyzenobase
 from pyzenobase import *
@@ -20,7 +20,7 @@ class ZenobaseTests(unittest.TestCase):
         self.assertEqual(self.zapi.list_buckets()["total"], 1)
         self.bucket_id = bucket["@id"]
 
-    def test_event(self):
+    def test_create_event(self):
         events = self.zapi.list_events(self.bucket_id)["events"]
         self.assertEqual(len(events), 0)
         event = ZenobaseEvent({
@@ -33,6 +33,28 @@ class ZenobaseTests(unittest.TestCase):
         self.assertEqual(len(events), 1)
         self.assertEqual(events[0]["timestamp"], event["timestamp"])
         self.assertEqual(events[0]["rating"], event["rating"])
+
+    def test_event_timestamp(self):
+        event = ZenobaseEvent({"timestamp": datetime.now()})
+        json.dumps(event)
+        
+        event = ZenobaseEvent({"timestamp": [datetime.now(), datetime.now()]})
+        json.dumps(event)
+
+        event = ZenobaseEvent({"timestamp": "s"})
+        json.dumps(event)
+        
+        event = ZenobaseEvent({"timestamp": ["s1", "s2"]})
+        json.dumps(event)
+        
+        event = ZenobaseEvent({"timestamp": ["s1", datetime.now()]})
+        json.dumps(event)
+
+        try:
+            event = ZenobaseEvent({"timestamp": 12})
+            self.fail()
+        except TypeError:
+            pass
 
     def tearDown(self):
         self.zapi.delete_bucket(self.bucket_id)

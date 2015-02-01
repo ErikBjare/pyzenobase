@@ -103,6 +103,22 @@ class ZenobaseEvent(dict):
         for field in data:
             assert field in _VALID_FIELDS
             self[field] = data[field]
+       
+        # TODO: Do the same for duration/timedelta
+        if "timestamp" in self:
+            self._check_timestamp()
+            if type(self["timestamp"]) == list:
+                datetimes_to_string = lambda x: fmt_datetime(x) if type(x) == datetime else x
+                self["timestamp"] = list(map(datetimes_to_string, self["timestamp"]))
+            elif type(self["timestamp"]) == datetime:
+                self["timestamp"] = fmt_datetime(self["timestamp"])
+
+    def _check_timestamp(self):
+        if not type(self["timestamp"]) in (str, datetime, list) and \
+                (type(self["timestamp"]) != list or all(map(lambda x: type(x) in (str, datetime), self["timestamp"]))):
+            raise TypeError("timestamp must be string, datetime or list of strings/datetimes")
+
+
 
 def fmt_datetime(dt, timezone="UTC"):
     tz = pytz.timezone(timezone)
