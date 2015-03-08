@@ -6,8 +6,9 @@ from pprint import pprint
 import unittest
 from random import randint
 from datetime import datetime
-import pytz
 
+import pytz
+from tzlocal import get_localzone
 import requests
 
 class ZenobaseAPI():
@@ -120,7 +121,7 @@ class ZenobaseEvent(dict):
 
 
 
-def fmt_datetime(dt, timezone="UTC"):
+def fmt_datetime(dt, timezone=str(get_localzone())):
     tz = pytz.timezone(timezone)
     dt = dt.astimezone(tz) if dt.tzinfo else tz.localize(dt)
     return dt.strftime('%Y-%m-%dT%H:%M:%S.000%z')
