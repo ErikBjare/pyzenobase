@@ -56,6 +56,21 @@ class ZenobaseTests(unittest.TestCase):
         except TypeError:
             pass
 
+    def test_with_stmt(self):
+        close_called = [False]
+        old_close = ZenobaseAPI.close
+
+        def new_close(self):
+            close_called[0] = not close_called[0]
+            old_close(self)
+        ZenobaseAPI.close = new_close
+
+        with ZenobaseAPI() as zapi:
+            pass
+
+        ZenobaseAPI.close = old_close
+        self.assertTrue(close_called[0])
+
     def tearDown(self):
         self.zapi.delete_bucket(self.bucket_id)
         self.zapi.close()

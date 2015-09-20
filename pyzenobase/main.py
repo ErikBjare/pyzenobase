@@ -12,6 +12,8 @@ from tzlocal import get_localzone
 import requests
 
 class ZenobaseAPI():
+    # TODO: Keep track of open/closed state internally
+
     HOST = "https://api.zenobase.com"
 
     def __init__(self, username=None, password=None):
@@ -26,6 +28,12 @@ class ZenobaseAPI():
             raise Exception("Invalid Zenobase credentials")
         self.access_token = data["access_token"]
         self.client_id = data["client_id"]
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.close()
 
     def _request(self, method, endpoint, data=None, headers={}):
         url = self.HOST + endpoint
