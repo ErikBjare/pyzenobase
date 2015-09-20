@@ -19,8 +19,13 @@ import logging
 import gspread
 import json
 from oauth2client.client import SignedJwtAssertionCredentials
+from typing import Optional, List
 
 import pyzenobase
+
+
+def times_to_dt(d, times):
+    return list(map(lambda t: pyzenobase.fmt_datetime(datetime.datetime.combine(d, t)), times))
 
 
 class Lifelogger_to_Zenobase():
@@ -38,9 +43,13 @@ class Lifelogger_to_Zenobase():
         self.streaks_bucket = self.zapi.create_or_get_bucket(streaks_bucket_name)
         self.supplements_bucket = self.zapi.create_or_get_bucket(supplements_bucket_name)
 
-    def _create_events(self, bucket_id, events):
+    def _create_events(self, bucket_id, events, debugging=False):
         logging.info("Uploading {} events...".format(len(events)))
-        self.zapi.create_events(bucket_id, events)
+        if not debugging:
+            self.zapi.create_events(bucket_id, events)
+        else:
+            for event in events:
+                self.zapi.create_event(bucket_id, event)
         logging.debug("Done!".format(len(events)))
 
     def get_raw_table(self, sheetname):
@@ -179,10 +188,13 @@ class Lifelogger_to_Zenobase():
     def create_timestamped_supps(self):
         # TODO: Support extra data in parens or clean up spreadsheet data with clearer syntax for parenthesis-data
         # TODO: Support substances with spaces (or change all such instances to no-space names)
+        # TODO: Build tags sequentially instead of having a bunch of if-statements at the end
+        # TODO: Extract attempts at data extraction since the try-except clauses are practically identical
         raw_table = self.get_raw_table("D - Timestamped")
         dates = self.get_dates(raw_table)
         parse_errors = 0
 
+        r_time = re.compile("[0-9]{1,2}:[0-9]{2}")
         r_weight = re.compile("^[0-9]+\.?[0-9]*")
         r_unit = re.compile("mcg|ug|mg|g|ml|cl|dl|l")
         r_roa = re.compile("oral|insuff|subl|intranasal|subcut|buccal")
@@ -193,14 +205,26 @@ class Lifelogger_to_Zenobase():
             for j, d in enumerate(dates):
                 time_cell = raw_table[j+1][i]
                 data_cell = raw_table[j+1][i+1]
+
+                time_is_approximate = False
+                time_is_unknown = False
+
                 if time_cell:
                     try:
-                        t = datetime.datetime.strptime(time_cell, "%H:%M:%S").time()
-                    except:
+                        if time_cell[0] == "~":
+                            time_is_approximate = True
+                        times = list(map(lambda x: datetime.datetime.strptime(x, "%H:%M").time(),
+                                         r_time.findall(time_cell)))
+                        if len(times) < 1:
+                            raise Exception("No valid times found")
+                    except Exception as e:
                         # Did not contain time
-                        logging.warning("Could not parse time from '{}', skipping".format(time_cell))
+                        logging.warning(("Could not parse time '{}' for '{}' at '{}' (exception: {}), " +
+                                         "tagging with unknown_time")
+                                        .format(time_cell, data_cell, d, e))
                         parse_errors += 1
-                        continue
+                        times = [datetime.time(hour=0, minute=0)]
+                        time_is_unknown = True
                 else:
                     # Cell empty
                     continue
@@ -213,17 +237,31 @@ class Lifelogger_to_Zenobase():
                     roa = "oral"
 
                 for dose_and_substance in map(str.strip, data_cell.split("+")):
+                    dose_is_approximate = False
+                    dose_is_unknown = False
+
+                    if dose_and_substance[0] == "~":
+                        dose_and_substance = dose_and_substance[1:]
+                        dose_is_approximate = True
+                    elif dose_and_substance[0] == "?":
+                        dose_and_substance = dose_and_substance.replace("?", "0")
+                        dose_is_unknown = True
+
+                    def parse_failed_msg(parse_property, exception):
+                        logging.warning(("Could not parse {} for '{}' at '{} {}' (exception: {}))"
+                                         .format(parse_property, dose_and_substance, d, times, exception)))
+
                     try:
                         weight_or_volume = float(r_weight.findall(dose_and_substance)[0])
-                    except (ValueError, IndexError):
-                        logging.warning("Could not parse weight_or_volume from '{}', skipping".format(dose_and_substance))
+                    except (ValueError, IndexError) as e:
+                        parse_failed_msg("weight_or_volume", e)
                         parse_errors += 1
                         continue
 
                     try:
                         unit = r_unit.findall(dose_and_substance)[0]
-                    except IndexError:
-                        logging.warning("Could not parse unit from '{}', skipping".format(dose_and_substance))
+                    except IndexError as e:
+                        parse_failed_msg("unit", e)
                         parse_errors += 1
                         continue
 
@@ -232,37 +270,43 @@ class Lifelogger_to_Zenobase():
                         try:
                             alc_perc = r_alc_perc.findall(dose_and_substance)[0]
                             alc_perc = alc_perc.replace("%", "")
-                        except IndexError:
-                            logging.warning("Could not parse percentage from '{}', skipping".format(dose_and_substance))
+                        except IndexError as e:
+                            parse_failed_msg("percentage", e)
                             parse_errors += 1
                             continue
-
-                    # Zenobase uses "ug" for micrograms
-                    if unit in ["mcg", "µg"]:
-                        unit = "ug"
 
                     substance = dose_and_substance.split(" ")[1]
                     unit_is_weight_or_vol = "volume" if "l" in unit else "weight"
 
-                    # Zenobase wants the 'L'/liter sign to be uppercase
-                    # TODO: Move to pyzenobase
-                    if unit_is_weight_or_vol:
-                        unit = unit.replace("l", "L")
-
                     event = pyzenobase.ZenobaseEvent(
-                            {"timestamp": pyzenobase.fmt_datetime(datetime.datetime.combine(d, t), timezone="Europe/Stockholm"),
+                            {"timestamp": times_to_dt(d, times),
                              "tag": [substance, roa, "timestamped"],
                              unit_is_weight_or_vol: {
                                  "@value": weight_or_volume,
                                  "unit": unit
                             }})
+
                     if alc_perc:
                         event["percentage"] = alc_perc
+                        event["tag"].append("alcohol")
+
+                    if dose_is_unknown:
+                        event["tag"].append("unknown_dose")
+
+                    if dose_is_approximate:
+                        event["tag"].append("approximate_dose")
+
+                    if time_is_unknown:
+                        event["tag"].append("unknown_time")
+
+                    if time_is_approximate:
+                        event["tag"].append("approximate_time")
+
                     events.append(event)
 
         logging.warning("Parse errors: " + str(parse_errors))
         bucket_id = self.supplements_bucket["@id"]
-        self._create_events(bucket_id, events)
+        self._create_events(bucket_id, events, debugging=False)
 
     def close(self):
         self.zapi.close()
@@ -284,11 +328,12 @@ if __name__ == "__main__":
 
     l2z = Lifelogger_to_Zenobase(args.google_oauth_json_file, args.zenobase_username, args.zenobase_password)
 
-    if create_streaks:
-        l2z.create_streaks()
-    if create_daily_supps:
-        l2z.create_daily_supps()
-    if create_timestamped_supps:
-        l2z.create_timestamped_supps()
-
-    l2z.close()
+    try:
+        if create_streaks:
+            l2z.create_streaks()
+        if create_daily_supps:
+            l2z.create_daily_supps()
+        if create_timestamped_supps:
+            l2z.create_timestamped_supps()
+    finally:
+        l2z.close()
