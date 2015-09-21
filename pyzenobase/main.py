@@ -130,14 +130,20 @@ class ZenobaseEvent(dict):
             elif type(self["timestamp"]) == datetime:
                 self["timestamp"] = fmt_datetime(self["timestamp"])
 
+        # FIXME: Support list of volumes
         if "volume" in self:
             self["volume"]["unit"] = self["volume"]["unit"].replace("l", "L")
+
+        # FIXME: Support list of weights
+        if "weight" in self:
+            # Zenobase uses "ug" for micrograms
+            if self["weight"]["unit"] in ["mcg", "µg"]:
+                self["weight"]["unit"] = "ug"
 
     def _check_timestamp(self):
         if not type(self["timestamp"]) in (str, datetime, list) and \
                 (type(self["timestamp"]) != list or all(map(lambda x: type(x) in (str, datetime), self["timestamp"]))):
             raise TypeError("timestamp must be string, datetime or list of strings/datetimes")
-
 
 
 def fmt_datetime(dt, timezone=str(get_localzone())):
