@@ -14,8 +14,8 @@ Install by using any of the following commands, prefix with `sudo` if necessary.
 ## Examples & Usages
 Check out the examples in the projects `./examples` directory. 
  
- - [Lifelogger Export](https://github.com/ErikBjare/pyzenobase/blob/master/examples/lifelogger_spreadsheet.py) - A script that turns a Google Docs spreadsheet into Zenobase data with support for logging daily supplements, timestamped supplements/drugs and habit streaks (deprecated).
- - [Battery Log Export](https://github.com/ErikBjare/pyzenobase/blob/master/examples/battery_csv.py) - Uploads battery data from a CSV file as exported by the Android app [Battery Log](https://play.google.com/store/apps/details?id=kr.hwangti.batterylog).
+ - [Lifelogger Export](./examples/upload_lifelogger_spreadsheet/) - A script that turns a Google Docs spreadsheet into Zenobase data with support for logging daily supplements, timestamped supplements/drugs and habit streaks (deprecated).
+ - [Battery Log Export](./examples/upload_battery_data_csv/) - Uploads battery data from a CSV file as exported by the Android app [Battery Log](https://play.google.com/store/apps/details?id=kr.hwangti.batterylog).
 
 If you are looking for other uses, check the list here:
 
@@ -26,3 +26,11 @@ If you are using PyZenobase, please let me know by [sending an email](mailto:eri
 ## Documentation
 Not yet available, but codebase is small so reading `./pyzenobase/main.py` should be enough to understand how to use it.
 For info about the general Zenobase API, look [here](https://zenobase.com/#/api/).
+
+
+### Example
+
+    import pyzenobase
+
+    with pyzenobase.o:q
+

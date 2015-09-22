@@ -30,7 +30,7 @@ def times_to_dt(d, times):
 
 class Lifelogger_to_Zenobase():
     def __init__(self, google_oauth_json_path, zenobase_username, zenobase_password,
-                 streaks_bucket_name="Streaks", supplements_bucket_name="Supplements"):
+                 streaks_bucket_name="Streaks", supplements_bucket_name="Supplements - New"):
         json_key = json.load(open(google_oauth_json_path))
         scope = ['https://spreadsheets.google.com/feeds']
 
