@@ -30,7 +30,17 @@ For info about the general Zenobase API, look [here](https://zenobase.com/#/api/
 
 ### Example
 
-    import pyzenobase
+Here is a simple example sending a single event to Zenobase.
 
-    with pyzenobase.o:q
+    from pyzenobase import ZenobaseAPI, ZenobaseEvent
+
+    USERNAME=""
+    PASSWORD=""
+
+    with ZenobaseAPI(USERNAME, PASSWORD) as zapi:
+         bucket = zapi.create_or_get_bucket("Test", description="Testing...")
+         event = ZenobaseEvent({"timestamp": datetime.now(), "note": "Hello world!", "tag": ["test", "pyzenobase"]})
+         zapi.create_event(bucket, event)
+        
+        
 
