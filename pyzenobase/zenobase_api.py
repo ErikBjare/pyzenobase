@@ -1,17 +1,9 @@
-#!/usr/bin/python3
-
-import time
 import json
-from pprint import pprint
-import unittest
-from random import randint
-from datetime import datetime
-
-import pytz
-from tzlocal import get_localzone
 import requests
+from pyzenobase import ZenobaseEvent
 
-class ZenobaseAPI():
+
+class ZenobaseAPI:
     # TODO: Keep track of open/closed state internally
 
     HOST = "https://api.zenobase.com"
@@ -83,70 +75,29 @@ class ZenobaseAPI():
     def list_events(self, bucket_id):
         return self._get("/buckets/{}/".format(bucket_id))
 
-    def create_event(self, bucket_id, event):
+    @staticmethod
+    def _bucket_id_from_bucket_or_id(bucket_or_bucket_id):
+        assert isinstance(bucket_or_bucket_id, str) or isinstance(bucket_or_bucket_id, dict)
+        if isinstance(bucket_or_bucket_id, str):
+            bucket_id = bucket_or_bucket_id
+        else:  # if isinstance(bucket_or_bucket_id, dict):
+            if "@id" in bucket_or_bucket_id:
+                bucket_id = bucket_or_bucket_id["@id"]
+            else:
+                raise Exception("@id field was not in the bucket dict, are you sure you passed a bucket?")
+        return bucket_id
+
+    def create_event(self, bucket_or_bucket_id, event):
         assert isinstance(event, ZenobaseEvent) or isinstance(event, dict)
+        bucket_id = self._bucket_id_from_bucket_or_id(bucket_or_bucket_id)
         return self._post("/buckets/{}/".format(bucket_id), data=event)
 
-    def create_events(self, bucket_id, events):
+    def create_events(self, bucket_or_bucket_id, events):
         assert isinstance(events, list)
+        bucket_id = self._bucket_id_from_bucket_or_id(bucket_or_bucket_id)
         for event in events:
             assert isinstance(event, ZenobaseEvent) or isinstance(event, dict)
         return self._post("/buckets/"+bucket_id+"/", data={"events": events})
 
     def close(self):
         return self._delete("/authorizations/"+self.access_token)
-
-
-_VALID_FIELDS = ["bits", "concentration", "count", "currency", "distance",
-                 "distance/volume", "duration", "energy", "frequency", "height",
-                 "humidity", "location", "moon", "note", "pace", "percentage",
-                 "pressure", "rating", "resource", "sound", "source", "tag",
-                 "temperature", "timestamp", "velocity", "volume", "weight"]
-
-
-class ZenobaseEvent(dict):
-    """
-        Provides simple structure checking
-    """
-    def __init__(self, data):
-        super(ZenobaseEvent, self).__init__(self)
-        for field in data:
-            assert field in _VALID_FIELDS
-            self[field] = data[field]
-
-        self.clean_data()
-
-    def clean_data(self):
-        """Ensures data is Zenobase compatible and patches it if possible,
-        if cleaning is not possible it'll raise an appropriate exception"""
-
-        # TODO: Do the same for duration/timedelta
-        if "timestamp" in self:
-            self._check_timestamp()
-            if type(self["timestamp"]) == list:
-                def datetime_to_string(dt):
-                    return fmt_datetime(dt) if type(dt) == datetime else dt
-                self["timestamp"] = list(map(datetime_to_string, self["timestamp"]))
-            elif type(self["timestamp"]) == datetime:
-                self["timestamp"] = fmt_datetime(self["timestamp"])
-
-        # FIXME: Support list of volumes
-        if "volume" in self:
-            self["volume"]["unit"] = self["volume"]["unit"].replace("l", "L")
-
-        # FIXME: Support list of weights
-        if "weight" in self:
-            # Zenobase uses "ug" for micrograms
-            if self["weight"]["unit"] in ["mcg", "µg"]:
-                self["weight"]["unit"] = "ug"
-
-    def _check_timestamp(self):
-        if not type(self["timestamp"]) in (str, datetime, list) and \
-                (type(self["timestamp"]) != list or all(map(lambda x: type(x) in (str, datetime), self["timestamp"]))):
-            raise TypeError("timestamp must be string, datetime or list of strings/datetimes")
-
-
-def fmt_datetime(dt, timezone=str(get_localzone())):
-    tz = pytz.timezone(timezone)
-    dt = dt.astimezone(tz) if dt.tzinfo else tz.localize(dt)
-    return dt.strftime('%Y-%m-%dT%H:%M:%S.000%z')
