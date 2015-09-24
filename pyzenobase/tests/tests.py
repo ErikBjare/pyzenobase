@@ -75,5 +75,15 @@ class ZenobaseTests(unittest.TestCase):
         self.zapi.delete_bucket(self.bucket_id)
         self.zapi.close()
 
+
+class ExampleTest(unittest.TestCase):
+    def testExample(self):
+        with ZenobaseAPI() as zapi:
+            bucket = zapi.create_or_get_bucket("Test", description="Testing...")
+            event = ZenobaseEvent({"timestamp": datetime.now(), "note": "Hello world!", "tag": ["test", "pyzenobase"]})
+            zapi.create_event(bucket, event)
+
+
 if __name__ == "__main__":
     unittest.main()
+
