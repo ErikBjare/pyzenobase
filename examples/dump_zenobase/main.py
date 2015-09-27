@@ -14,14 +14,14 @@ print(output_filename)
 
 with ZenobaseAPI(username, password) as zapi:
     # Buckets object below doesn't contain bucket data, only metadata.
-    buckets_meta = zapi.list_buckets(limit=50)["buckets"]
-    print(len(buckets_meta))
-    bucket_id_name_pair = map(lambda b: (b["@id"], b["label"]), buckets_meta)
+    buckets = zapi.list_buckets(limit=100)["buckets"]
+    print("Fetching {} buckets...".format(len(buckets)))
 
-    buckets = []
-    for b_id, b_name in bucket_id_name_pair:
+    for bucket in buckets:
+        b_id, b_name = bucket["@id"], bucket["label"]
         print("Dumping bucket with id '{}' and label '{}'".format(b_id, b_name))
-        buckets.append(zapi.get_bucket(b_id))
+        events = zapi.list_events(b_id)["events"]
+        bucket["events"] = events
 
 with open(output_filename, "w+") as f:
     data = json.dumps(buckets)
