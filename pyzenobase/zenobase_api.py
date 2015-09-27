@@ -51,8 +51,12 @@ class ZenobaseAPI:
     def _delete(self, *args, **kwargs):
         return self._request(requests.delete, *args, **kwargs)
 
-    def list_buckets(self):
-        return self._get("/users/{}/buckets/".format(self.client_id))
+    def list_buckets(self, offset=0, limit=100):
+        """Limit breaks above 100"""
+        # TODO: If limit > 100, do multiple fetches
+        if limit > 100:
+            raise Exception("Zenobase can't handle limits over 100")
+        return self._get("/users/{}/buckets/?order=label&offset={}&limit={}".format(self.client_id, offset, limit))
 
     def get_bucket(self, bucket_id):
         return self._get("/buckets/{}".format(bucket_id))
