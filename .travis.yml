@@ -2,16 +2,18 @@ language: python
 sudo: false
 
 python:
+    - 3.2
     - 3.3
     - 3.4
     - 3.5
     - nightly
+    - pypy3
 
 before_install:
-    - pip install .
+    - true
 
 install:
-    - true
+    - pip install .
 
 before_script:
     - true
